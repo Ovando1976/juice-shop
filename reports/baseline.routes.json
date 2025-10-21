@@ -1,0 +1,14 @@
+{
+  "origin": "http://localhost:3000",
+  "capturedAt": "2025-10-21T18:10:33.449Z",
+  "urls": [
+    "http://localhost:3000/",
+    "http://localhost:3000/#/about",
+    "http://localhost:3000/#/contact",
+    "http://localhost:3000/#/login",
+    "http://localhost:3000/#/photo-wall",
+    "http://localhost:3000/#/register",
+    "http://localhost:3000/#/score-board",
+    "http://localhost:3000/#/search"
+  ]
+}
