@@ -1,0 +1,76 @@
+name: Lab Regression
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.12.0"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: |
+          (npm ci && echo "used npm ci") || npm i --legacy-peer-deps
+
+      - name: Build app
+        run: |
+          npm run build:frontend || true
+          npm run build:server || npx tsc
+
+      - name: Start server
+        run: |
+          node build/app & echo $! > .server_pid
+      - name: Wait for port 3000
+        run: npx --yes wait-on http://localhost:3000 --timeout 120000
+
+      # ===== extra evidence (non-blocking) =====
+      - name: Generate routes & reports
+        run: |
+          npm run lab:routes
+          npm run lab:audit || true
+          npm run lab:bundles || true
+          npm run lab:headers:diff || true
+          npm run lab:headers:csv || true
+          npm run lab:cache > reports/cache.tsv
+          npm run lab:profile:v2 || true
+
+      - name: Route budget guard (non-blocking)
+        continue-on-error: true
+        env:
+          LAB_ROUTE_BUDGET: "120000" # 120 KB HTML body budget
+        run: npm run lab:route:budget
+
+      # ===== enforcement =====
+      - name: Regression (routes + headers; strict)
+        env:
+          LAB_STRICT_ROUTES: "1"
+          LAB_ALLOW_LABEL: "allow-new-routes"
+        run: npm run lab:regress
+
+      - name: Pack evidence
+        if: always()
+        run: npm run lab:pack
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-reports
+          path: reports/**
+          if-no-files-found: ignore
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f .server_pid ]; then kill $(cat .server_pid) || true; fi
